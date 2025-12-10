@@ -13,6 +13,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.json.JSONString;
 
 /**
  * MongoGradeDataBase class.
@@ -31,7 +32,7 @@ public class MongoGradeDataBase implements GradeDataBase {
     private static final String USERNAME = "username";
     private static final int SUCCESS_CODE = 200;
 
-    // load token from env variable.
+    // load token.txt from env variable.
     public static String getAPIToken() {
         return System.getenv(TOKEN);
     }
@@ -40,7 +41,7 @@ public class MongoGradeDataBase implements GradeDataBase {
     public Grade getGrade(String username, String course) {
 
         // Build the request to get the grade.
-        // Note: The API requires the token to be passed as a header.
+        // Note: The API requires the token.txt to be passed as a header.
         // Note: The API requires the course and username to be passed as query parameters.
         final OkHttpClient client = new OkHttpClient().newBuilder()
                 .build();
@@ -77,7 +78,7 @@ public class MongoGradeDataBase implements GradeDataBase {
     public Grade[] getGrades(String username) {
 
         // Build the request to get all grades for a user.
-        // Note: The API requires the token to be passed as a header.
+        // Note: The API requires the token.txt to be passed as a header.
         // Note: The API requires the username to be passed as a query parameter.
         final OkHttpClient client = new OkHttpClient().newBuilder()
                 .build();
@@ -251,7 +252,7 @@ public class MongoGradeDataBase implements GradeDataBase {
     //       Hint: Read the Grade API documentation for getMyTeam (link below) and refer to the above similar
     //             methods to help you write this code (copy-and-paste + edit as needed).
     //             https://www.postman.com/cloudy-astronaut-813156/csc207-grade-apis-demo/folder/isr2ymn/get-my-team
-    public Team getMyTeam() {
+    public Team getMyTeam() throws JSONException {
         final OkHttpClient client = new OkHttpClient().newBuilder()
                 .build();
         final Request request = new Request.Builder()
@@ -261,13 +262,32 @@ public class MongoGradeDataBase implements GradeDataBase {
                 .addHeader(CONTENT_TYPE, APPLICATION_JSON)
                 .build();
 
-        final Response response;
-        final JSONObject responseBody;
-
         // TODO Task 3b: Implement the logic to get the team information
         // HINT 1: Look at the formTeam method to get an idea on how to parse the response
         // HINT 2: You may find it useful to just initially print the contents of the JSON
         //         then work on the details of how to parse it.
-        return null;
+        try {
+            final Response response = client.newCall(request).execute();
+            final JSONObject responseBody = new JSONObject(response.body().string());
+
+            if (responseBody.getInt(STATUS_CODE) == SUCCESS_CODE) {
+                final JSONObject team = responseBody.getJSONObject("team");
+                final String name = team.getString("name");
+                final JSONArray membersArray = team.getJSONArray("members");
+                final String[] members = new String[membersArray.length()];
+                for (int i = 0; i < membersArray.length(); i++) {
+                    members[i] = membersArray.getString(i);
+                }
+
+                return Team.builder()
+                        .name(name)
+                        .members(members)
+                        .build();
+            } else {
+                throw new RuntimeException(responseBody.getString(MESSAGE));
+            }
+        } catch (IOException | JSONException event) {
+            throw new RuntimeException(event);
+        }
     }
 }
